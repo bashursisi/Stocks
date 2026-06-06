@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeFloor — Stock Market Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07080c; --s1:#0d0f16; --s2:#131620; --s3:#191d2b;
+  --b1:#1e2233; --b2:#252a3a;
+  --txt:#dde1f0; --muted:#5a6080; --dim:#3a4060;
+  --bull:#00e07a; --bear:#ff3d57; --accent:#ffe040; --blue:#4d9fff;
+  --bull-bg:rgba(0,224,122,.08); --bear-bg:rgba(255,61,87,.08);
+  --accent-bg:rgba(255,224,64,.08);
+  --font-display:'Bebas Neue',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+  --font-body:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:var(--font-body);font-size:13px;display:flex;flex-direction:column}
+
+/* ── scrollbar ── */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ── TOP BAR ── */
+.topbar{
+  display:flex;align-items:center;gap:20px;
+  padding:0 20px;height:48px;
+  background:var(--s1);border-bottom:1px solid var(--b1);
+  flex-shrink:0;
+}
+.logo{font-family:var(--font-display);font-size:1.6rem;letter-spacing:.04em;color:var(--accent)}
+.logo span{color:var(--muted)}
+.tb-sep{width:1px;height:24px;background:var(--b2)}
+.tb-clock{font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
+.tb-clock strong{color:var(--txt)}
+.tb-speed{display:flex;align-items:center;gap:6px}
+.speed-btn{
+  font-family:var(--font-mono);font-size:.65rem;
+  padding:3px 9px;border-radius:2px;border:1px solid var(--b2);
+  background:var(--s2);color:var(--muted);cursor:pointer;transition:.12s
+}
+.speed-btn:hover{color:var(--txt);border-color:var(--b2)}
+.speed-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.tb-portfolio{
+  margin-left:auto;text-align:right;
+  font-family:var(--font-mono);
+}
+.tb-portfolio .lbl{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.tb-portfolio .val{font-size:1rem;font-weight:600}
+.tb-portfolio .chg{font-size:.72rem}
+.paused-badge{
+  font-family:var(--font-mono);font-size:.65rem;
+  padding:3px 10px;border-radius:2px;
+  background:var(--bear-bg);border:1px solid var(--bear);color:var(--bear);
+  display:none
+}
+
+/* ── MAIN LAYOUT ── */
+.app{display:grid;grid-template-columns:260px 1fr 280px;flex:1;overflow:hidden}
+
+/* ── STOCK LIST ── */
+.stock-list{
+  background:var(--s1);border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;overflow:hidden
+}
+.panel-head{
+  padding:12px 16px;border-bottom:1px solid var(--b1);
+  font-family:var(--font-mono);font-size:.6rem;
+  text-transform:uppercase;letter-spacing:.1em;color:var(--muted)
+}
+.stock-items{flex:1;overflow-y:auto}
+.stock-card{
+  padding:12px 16px;border-bottom:1px solid var(--b1);
+  cursor:pointer;transition:background .12s;position:relative
+}
+.stock-card:hover{background:var(--s2)}
+.stock-card.selected{background:var(--s3);border-left:2px solid var(--accent)}
+.sc-row1{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.sc-ticker{font-family:var(--font-display);font-size:1.1rem;letter-spacing:.04em}
+.sc-price{font-family:var(--font-mono);font-size:.92rem;font-weight:600}
+.sc-row2{display:flex;justify-content:space-between;align-items:center}
+.sc-name{font-size:.7rem;color:var(--muted)}
+.sc-chg{
+  font-family:var(--font-mono);font-size:.7rem;font-weight:500;
+  padding:1px 6px;border-radius:2px
+}
+.sc-chg.up{background:var(--bull-bg);color:var(--bull)}
+.sc-chg.dn{background:var(--bear-bg);color:var(--bear)}
+.sc-mini{height:28px;margin-top:6px}
+.sc-regime{
+  position:absolute;top:10px;right:16px;
+  font-family:var(--font-mono);font-size:.55rem;
+  color:var(--dim)
+}
+
+/* ── CHART AREA ── */
+.chart-zone{
+  display:flex;flex-direction:column;overflow:hidden;background:var(--bg)
+}
+.chart-header{
+  padding:12px 20px 10px;border-bottom:1px solid var(--b1);
+  display:flex;align-items:flex-start;gap:20px;flex-shrink:0;background:var(--s1)
+}
+.ch-name{flex:1}
+.ch-ticker{font-family:var(--font-display);font-size:2.2rem;letter-spacing:.04em}
+.ch-fullname{font-size:.75rem;color:var(--muted);margin-top:1px}
+.ch-price-block{text-align:right}
+.ch-price{font-family:var(--font-mono);font-size:1.6rem;font-weight:600}
+.ch-chg{font-family:var(--font-mono);font-size:.8rem;margin-top:2px}
+.ch-regime-badge{
+  font-family:var(--font-mono);font-size:.65rem;
+  padding:3px 10px;border-radius:2px;margin-top:6px;display:inline-block
+}
+
+.chart-body{flex:1;position:relative;overflow:hidden}
+canvas#mainChart{display:block}
+.chart-hover-info{
+  position:absolute;top:10px;left:14px;
+  background:rgba(13,15,22,.9);border:1px solid var(--b2);
+  padding:8px 12px;border-radius:4px;
+  font-family:var(--font-mono);font-size:.7rem;
+  pointer-events:none;display:none;line-height:1.7
+}
+
+.vol-area{height:52px;border-top:1px solid var(--b1);flex-shrink:0;position:relative}
+canvas#volChart{display:block}
+
+.buy-sell-bar{
+  padding:10px 20px;border-top:1px solid var(--b1);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+  background:var(--s1)
+}
+.bs-label{font-family:var(--font-mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.qty-input{
+  font-family:var(--font-mono);font-size:.85rem;font-weight:600;
+  width:80px;padding:6px 10px;
+  background:var(--s2);border:1px solid var(--b2);
+  color:var(--txt);border-radius:3px;text-align:center
+}
+.qty-input:focus{outline:none;border-color:var(--accent)}
+.cost-preview{font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
+.cost-preview strong{color:var(--txt)}
+.action-btn{
+  font-family:var(--font-mono);font-size:.8rem;font-weight:600;
+  padding:8px 22px;border-radius:3px;border:none;cursor:pointer;
+  text-transform:uppercase;letter-spacing:.06em;transition:.12s
+}
+.action-btn.buy{background:var(--bull);color:#000}
+.action-btn.buy:hover{background:#00f588}
+.action-btn.sell{background:var(--bear);color:#fff}
+.action-btn.sell:hover{background:#ff5c72}
+.action-btn:disabled{opacity:.35;cursor:not-allowed}
+.trade-msg{font-family:var(--font-mono);font-size:.72rem;min-width:140px}
+.trade-msg.ok{color:var(--bull)}
+.trade-msg.err{color:var(--bear)}
+
+/* ── RIGHT PANEL ── */
+.right-panel{
+  background:var(--s1);border-left:1px solid var(--b1);
+  display:flex;flex-direction:column;overflow:hidden
+}
+
+/* portfolio summary */
+.port-summary{padding:14px 16px;border-bottom:1px solid var(--b1)}
+.port-row{display:flex;justify-content:space-between;margin-bottom:6px}
+.port-kv .k{font-family:var(--font-mono);font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.port-kv .v{font-family:var(--font-mono);font-size:.88rem;font-weight:600}
+.equity-chart-wrap{height:52px;margin-top:8px;position:relative}
+canvas#equityChart{display:block}
+
+/* holdings */
+.holdings-list{flex:1;overflow-y:auto}
+.holding-row{
+  padding:10px 16px;border-bottom:1px solid var(--b1);
+  display:grid;grid-template-columns:1fr auto;gap:4px
+}
+.hr-top{display:flex;justify-content:space-between;margin-bottom:3px}
+.hr-ticker{font-family:var(--font-display);font-size:1rem;letter-spacing:.04em}
+.hr-qty{font-family:var(--font-mono);font-size:.65rem;color:var(--muted);padding-top:2px}
+.hr-value{font-family:var(--font-mono);font-size:.82rem;font-weight:600;text-align:right}
+.hr-cost{font-family:var(--font-mono);font-size:.62rem;color:var(--muted);text-align:right}
+.hr-pnl{font-family:var(--font-mono);font-size:.7rem;font-weight:600;text-align:right;padding:1px 5px;border-radius:2px}
+.hr-pnl.up{background:var(--bull-bg);color:var(--bull)}
+.hr-pnl.dn{background:var(--bear-bg);color:var(--bear)}
+.no-holdings{padding:20px 16px;font-size:.75rem;color:var(--muted);text-align:center}
+
+/* trade log */
+.trade-log{border-top:1px solid var(--b1);max-height:180px;overflow-y:auto}
+.tl-item{
+  padding:7px 16px;border-bottom:1px solid var(--b1);
+  font-family:var(--font-mono);font-size:.65rem;
+  display:flex;gap:8px;align-items:center
+}
+.tl-badge{padding:1px 6px;border-radius:2px;font-weight:600;font-size:.6rem;flex-shrink:0}
+.tl-badge.buy{background:var(--bull-bg);color:var(--bull)}
+.tl-badge.sell{background:var(--bear-bg);color:var(--bear)}
+.tl-text{flex:1;color:var(--muted)}
+.tl-text strong{color:var(--txt)}
+.tl-time{color:var(--dim);flex-shrink:0}
+
+/* regime legend */
+.regime-legend{padding:10px 16px;border-top:1px solid var(--b1);flex-shrink:0}
+.regime-legend .lbl{font-family:var(--font-mono);font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.rl-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.rl-item{font-family:var(--font-mono);font-size:.62rem;color:var(--muted);display:flex;gap:5px;align-items:center}
+.rl-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ── FLASH ── */
+@keyframes flashGreen{0%{background:rgba(0,224,122,.25)}100%{background:transparent}}
+@keyframes flashRed{0%{background:rgba(255,61,87,.25)}100%{background:transparent}}
+.flash-up{animation:flashGreen .5s ease-out}
+.flash-dn{animation:flashRed .5s ease-out}
+
+/* ── MODAL / TOAST ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--s3);border:1px solid var(--b2);
+  padding:10px 20px;border-radius:4px;
+  font-family:var(--font-mono);font-size:.78rem;
+  pointer-events:none;opacity:0;transition:opacity .2s;
+  z-index:999
+}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">Trade<span>Floor</span></div>
+  <div class="tb-sep"></div>
+  <div class="tb-clock">
+    DAY <strong id="tb-day">1</strong> &nbsp;|&nbsp; TICK <strong id="tb-tick">0</strong>
+  </div>
+  <div class="tb-sep"></div>
+  <div class="tb-speed">
+    <span style="font-family:var(--font-mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Speed</span>
+    <button class="speed-btn" onclick="setSpeed(2000)">Slow</button>
+    <button class="speed-btn active" onclick="setSpeed(800)">Normal</button>
+    <button class="speed-btn" onclick="setSpeed(250)">Fast</button>
+    <button class="speed-btn" onclick="setSpeed(60)">Turbo</button>
+    <button class="speed-btn" id="pause-btn" onclick="togglePause()" style="border-color:var(--accent);color:var(--accent)">⏸ Pause</button>
+  </div>
+  <div class="paused-badge" id="paused-badge">⏸ PAUSED</div>
+  <div class="tb-sep"></div>
+  <div class="tb-portfolio">
+    <div class="lbl">Portfolio Value</div>
+    <div class="val" id="tb-portval">$10,000.00</div>
+    <div class="chg" id="tb-portchg" style="color:var(--muted)">+$0.00 (0.00%)</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="app">
+
+  <!-- STOCK LIST -->
+  <div class="stock-list">
+    <div class="panel-head">Markets &mdash; <span id="live-count">0</span> stocks</div>
+    <div class="stock-items" id="stock-items"></div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-zone">
+    <div class="chart-header">
+      <div class="ch-name">
+        <div class="ch-ticker" id="ch-ticker">—</div>
+        <div class="ch-fullname" id="ch-fullname">Select a stock</div>
+        <div class="ch-regime-badge" id="ch-regime-badge"></div>
+      </div>
+      <div class="ch-price-block">
+        <div class="ch-price" id="ch-price">—</div>
+        <div class="ch-chg" id="ch-chg">—</div>
+      </div>
+    </div>
+    <div class="chart-body" id="chart-body">
+      <canvas id="mainChart"></canvas>
+      <div class="chart-hover-info" id="chart-hover-info"></div>
+    </div>
+    <div class="vol-area" id="vol-area">
+      <canvas id="volChart"></canvas>
+    </div>
+    <div class="buy-sell-bar">
+      <span class="bs-label">Shares</span>
+      <input class="qty-input" type="number" id="qty-input" value="10" min="1" max="9999" oninput="updateCostPreview()">
+      <div class="cost-preview" id="cost-preview">Cost: <strong>—</strong></div>
+      <div style="flex:1"></div>
+      <button class="action-btn buy" id="btn-buy" onclick="executeTrade('buy')">Buy</button>
+      <button class="action-btn sell" id="btn-sell" onclick="executeTrade('sell')">Sell</button>
+      <div class="trade-msg" id="trade-msg"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="panel-head">Portfolio</div>
+    <div class="port-summary">
+      <div class="port-row">
+        <div class="port-kv"><div class="k">Cash</div><div class="v" id="cash-val">$10,000.00</div></div>
+        <div class="port-kv" style="text-align:right"><div class="k">Invested</div><div class="v" id="inv-val">$0.00</div></div>
+      </div>
+      <div class="port-row">
+        <div class="port-kv"><div class="k">Total P&amp;L</div><div class="v" id="pnl-val">$0.00</div></div>
+        <div class="port-kv" style="text-align:right"><div class="k">Return</div><div class="v" id="ret-val">0.00%</div></div>
+      </div>
+      <div class="equity-chart-wrap">
+        <canvas id="equityChart"></canvas>
+      </div>
+    </div>
+    <div class="panel-head">Holdings</div>
+    <div class="holdings-list" id="holdings-list"><div class="no-holdings">No positions yet</div></div>
+    <div class="panel-head">Trade Log</div>
+    <div class="trade-log" id="trade-log"></div>
+    <div class="regime-legend">
+      <div class="lbl">Stock Behaviours</div>
+      <div class="rl-grid" id="rl-grid"></div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STOCKS — each has a "regime" that defines its personality
+// ═══════════════════════════════════════════════════════════════
+const REGIMES = {
+  trending_up:   { label:'Trending Up',    color:'#00e07a', desc:'Steady upward drift',      drift:+0.008, vol:0.012 },
+  trending_down: { label:'Trending Down',  color:'#ff3d57', desc:'Steady downward drift',    drift:-0.008, vol:0.012 },
+  volatile:      { label:'Volatile',       color:'#ffe040', desc:'Wild swings both ways',    drift: 0.000, vol:0.040 },
+  stable:        { label:'Stable',         color:'#4d9fff', desc:'Low volatility, flat',     drift:+0.001, vol:0.006 },
+  boom_bust:     { label:'Boom & Bust',    color:'#ff8c42', desc:'Strong runs then crashes', drift: 0.000, vol:0.020 },
+  mean_revert:   { label:'Mean-Reverting', color:'#c17aff', desc:'Snaps back to average',    drift: 0.000, vol:0.018 },
+  random_walk:   { label:'Random Walk',    color:'#78909c', desc:'Pure random movement',     drift: 0.000, vol:0.022 },
+};
+
+const STOCK_DEFS = [
+  { ticker:'APXL', name:'Apex Technologies',    regime:'trending_up',   startPrice:142.50 },
+  { ticker:'VRTX', name:'Vertex Pharma',        regime:'trending_down', startPrice:88.30  },
+  { ticker:'ZNGR', name:'Zinger Energy',        regime:'volatile',      startPrice:55.00  },
+  { ticker:'BLKR', name:'Blokr Financial',      regime:'stable',        startPrice:200.00 },
+  { ticker:'MNGO', name:'Mango Retail Group',   regime:'boom_bust',     startPrice:32.00  },
+  { ticker:'CRVX', name:'Curvex Analytics',     regime:'mean_revert',   startPrice:110.00 },
+  { ticker:'DRFT', name:'Driftwood Media',      regime:'random_walk',   startPrice:67.80  },
+  { ticker:'NXUS', name:'Nexus Robotics',       regime:'trending_up',   startPrice:310.00 },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const STARTING_CASH = 10000;
+const HISTORY_LEN   = 120;
+
+let state = {
+  cash: STARTING_CASH,
+  tick: 0,
+  day:  1,
+  paused: false,
+  speed: 800,
+  selectedTicker: 'APXL',
+  stocks: {},
+  holdings: {},    // ticker -> { qty, avgCost }
+  tradeLog: [],
+  equityHistory: [STARTING_CASH],
+};
+
+// boom_bust internal counters
+let boomState = {};
+
+function initStocks() {
+  STOCK_DEFS.forEach(def => {
+    const hist = [];
+    let p = def.startPrice;
+    // seed 40 candles of history
+    for (let i = 0; i < 40; i++) {
+      const r = REGIMES[def.regime];
+      const o = p;
+      const chg = r.drift + (Math.random()-0.5)*r.vol*2;
+      const c = Math.max(0.5, p * (1 + chg));
+      const h = Math.max(o,c) * (1 + Math.random()*r.vol*0.5);
+      const l = Math.min(o,c) * (1 - Math.random()*r.vol*0.5);
+      hist.push({ o, h, l, c, v: Math.round(50000 + Math.random()*950000) });
+      p = c;
+    }
+    state.stocks[def.ticker] = {
+      ...def,
+      price: p,
+      history: hist,
+      open: p,
+    };
+    boomState[def.ticker] = { phase: 'neutral', streak: 0 };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRICE ENGINE
+// ═══════════════════════════════════════════════════════════════
+function nextPrice(ticker) {
+  const stock = state.stocks[ticker];
+  const r     = REGIMES[stock.regime];
+  const price = stock.price;
+  let drift   = r.drift;
+  let vol     = r.vol;
+
+  if (stock.regime === 'boom_bust') {
+    const bs = boomState[ticker];
+    bs.streak++;
+    if (bs.phase === 'boom') {
+      drift = +0.025; vol = 0.015;
+      if (bs.streak > 8 + Math.random()*6) { bs.phase='bust'; bs.streak=0; }
+    } else if (bs.phase === 'bust') {
+      drift = -0.030; vol = 0.020;
+      if (bs.streak > 5 + Math.random()*4) { bs.phase='neutral'; bs.streak=0; }
+    } else {
+      drift = (Math.random()-0.5)*0.01;
+      if (Math.random() < 0.07) { bs.phase='boom'; bs.streak=0; }
+    }
+  }
+
+  if (stock.regime === 'mean_revert') {
+    const target = stock.history[0]?.c || price;
+    const mean   = stock.history.slice(-30).reduce((s,c)=>s+c.c,0) / Math.min(30, stock.history.length);
+    drift = (mean - price) / price * 0.15;
+  }
+
+  const chg = drift + (Math.random()-0.5) * vol * 2;
+  const o   = price;
+  const c   = Math.max(0.5, price * (1 + chg));
+  const high = Math.max(o,c) * (1 + Math.random() * vol * 0.6);
+  const low  = Math.min(o,c) * (1 - Math.random() * vol * 0.6);
+  const candle = { o, h: high, l: low, c, v: Math.round(50000 + Math.random()*950000) };
+
+  stock.history.push(candle);
+  if (stock.history.length > HISTORY_LEN) stock.history.shift();
+  stock.price = c;
+  return candle;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TICK LOOP
+// ═══════════════════════════════════════════════════════════════
+let tickTimer = null;
+
+function tick() {
+  if (state.paused) return;
+  state.tick++;
+  if (state.tick % 24 === 0) state.day++;
+
+  STOCK_DEFS.forEach(def => nextPrice(def.ticker));
+
+  // equity snapshot every 5 ticks
+  if (state.tick % 5 === 0) {
+    const eq = portfolioValue();
+    state.equityHistory.push(eq);
+    if (state.equityHistory.length > 200) state.equityHistory.shift();
+  }
+
+  updateUI();
+}
+
+function startTimer() {
+  clearInterval(tickTimer);
+  tickTimer = setInterval(tick, state.speed);
+}
+
+function setSpeed(ms) {
+  state.speed = ms;
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(
+      ms===2000?'slow':ms===800?'normal':ms===250?'fast':'turbo'));
+  });
+  startTimer();
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  document.getElementById('pause-btn').textContent = state.paused ? '▶ Resume' : '⏸ Pause';
+  document.getElementById('paused-badge').style.display = state.paused ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PORTFOLIO
+// ═══════════════════════════════════════════════════════════════
+function portfolioValue() {
+  let invested = 0;
+  Object.entries(state.holdings).forEach(([tk, h]) => {
+    invested += h.qty * state.stocks[tk].price;
+  });
+  return state.cash + invested;
+}
+
+function unrealizedPnL(ticker) {
+  const h = state.holdings[ticker];
+  if (!h || h.qty === 0) return 0;
+  return (state.stocks[ticker].price - h.avgCost) * h.qty;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TRADING
+// ═══════════════════════════════════════════════════════════════
+function executeTrade(side) {
+  const ticker = state.selectedTicker;
+  const qty    = parseInt(document.getElementById('qty-input').value) || 0;
+  const price  = state.stocks[ticker].price;
+  const cost   = qty * price;
+  const msg    = document.getElementById('trade-msg');
+
+  if (qty <= 0) { showMsg('Enter valid quantity', 'err'); return; }
+
+  if (side === 'buy') {
+    if (cost > state.cash) { showMsg('Insufficient cash', 'err'); return; }
+    state.cash -= cost;
+    const h = state.holdings[ticker] || { qty: 0, avgCost: 0 };
+    const newQty = h.qty + qty;
+    h.avgCost = (h.avgCost * h.qty + cost) / newQty;
+    h.qty = newQty;
+    state.holdings[ticker] = h;
+    logTrade('buy', ticker, qty, price);
+    showMsg(`Bought ${qty} × ${ticker}`, 'ok');
+    showToast(`✓ Bought ${qty} shares of ${ticker} @ $${price.toFixed(2)}`);
+  } else {
+    const h = state.holdings[ticker];
+    if (!h || h.qty < qty) { showMsg('Not enough shares', 'err'); return; }
+    state.cash += cost;
+    h.qty -= qty;
+    if (h.qty === 0) delete state.holdings[ticker];
+    logTrade('sell', ticker, qty, price);
+    showMsg(`Sold ${qty} × ${ticker}`, 'ok');
+    showToast(`✓ Sold ${qty} shares of ${ticker} @ $${price.toFixed(2)}`);
+  }
+
+  updateUI();
+}
+
+function logTrade(side, ticker, qty, price) {
+  state.tradeLog.unshift({ side, ticker, qty, price, tick: state.tick });
+  if (state.tradeLog.length > 50) state.tradeLog.pop();
+}
+
+let msgTimer;
+function showMsg(txt, cls) {
+  const el = document.getElementById('trade-msg');
+  el.textContent = txt; el.className = 'trade-msg ' + cls;
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => { el.textContent = ''; el.className = 'trade-msg'; }, 2500);
+}
+
+let toastTimer;
+function showToast(txt) {
+  const t = document.getElementById('toast');
+  t.textContent = txt; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════
+function updateUI() {
+  document.getElementById('tb-day').textContent  = state.day;
+  document.getElementById('tb-tick').textContent = state.tick;
+
+  const portVal = portfolioValue();
+  const portChg = portVal - STARTING_CASH;
+  const portPct = portChg / STARTING_CASH * 100;
+  const portBull = portChg >= 0;
+  document.getElementById('tb-portval').textContent = '$' + fmt2(portVal);
+  const pce = document.getElementById('tb-portchg');
+  pce.textContent = `${portBull?'+':'-'}$${fmt2(Math.abs(portChg))} (${portBull?'+':''}${portPct.toFixed(2)}%)`;
+  pce.style.color = portBull ? 'var(--bull)' : 'var(--bear)';
+
+  renderStockList();
+  renderMainChart();
+  renderPortfolioPanel();
+  renderHoldings();
+  renderTradeLog();
+  renderEquityChart();
+  updateCostPreview();
+}
+
+function renderStockList() {
+  const container = document.getElementById('stock-items');
+  document.getElementById('live-count').textContent = STOCK_DEFS.length;
+
+  STOCK_DEFS.forEach(def => {
+    const s   = state.stocks[def.ticker];
+    const hist = s.history;
+    const prev = hist.length > 1 ? hist[hist.length-2].c : hist[0]?.o || s.price;
+    const chg  = (s.price - prev) / prev * 100;
+    const bull = chg >= 0;
+    const r    = REGIMES[def.regime];
+
+    let el = document.getElementById('sc-' + def.ticker);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'stock-card';
+      el.id = 'sc-' + def.ticker;
+      el.onclick = () => selectStock(def.ticker);
+      el.innerHTML = `
+        <div class="sc-regime"></div>
+        <div class="sc-row1">
+          <span class="sc-ticker">${def.ticker}</span>
+          <span class="sc-price"></span>
+        </div>
+        <div class="sc-row2">
+          <span class="sc-name">${def.name}</span>
+          <span class="sc-chg"></span>
+        </div>
+        <canvas class="sc-mini" id="mini-${def.ticker}"></canvas>
+      `;
+      container.appendChild(el);
+    }
+
+    el.classList.toggle('selected', def.ticker === state.selectedTicker);
+    el.querySelector('.sc-price').textContent = '$' + fmt2(s.price);
+    const chgEl = el.querySelector('.sc-chg');
+    chgEl.textContent = `${bull?'+':''}${chg.toFixed(2)}%`;
+    chgEl.className = 'sc-chg ' + (bull?'up':'dn');
+    el.querySelector('.sc-regime').textContent = r.label;
+
+    // flash
+    if (bull) { el.classList.remove('flash-dn'); void el.offsetWidth; el.classList.add('flash-up'); }
+    else       { el.classList.remove('flash-up'); void el.offsetWidth; el.classList.add('flash-dn'); }
+
+    renderMiniChart(def.ticker);
+  });
+}
+
+function renderMiniChart(ticker) {
+  const canvas = document.getElementById('mini-' + ticker);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 32;
+  const H = 28;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const hist = state.stocks[ticker].history.slice(-30);
+  const closes = hist.map(c => c.c);
+  const mn = Math.min(...closes), mx = Math.max(...closes);
+  const range = mx - mn || 1;
+  const bull = closes[closes.length-1] >= closes[0];
+  const color = bull ? '#00e07a' : '#ff3d57';
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  closes.forEach((v, i) => {
+    const x = (i / (closes.length - 1)) * (W - 2) + 1;
+    const y = H - 2 - ((v - mn) / range) * (H - 4);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // fill
+  ctx.lineTo(W - 1, H); ctx.lineTo(1, H); ctx.closePath();
+  ctx.fillStyle = bull ? 'rgba(0,224,122,.08)' : 'rgba(255,61,87,.08)';
+  ctx.fill();
+}
+
+// ── MAIN CANDLESTICK CHART ──────────────────────────────────────
+function renderMainChart() {
+  const ticker = state.selectedTicker;
+  const s      = state.stocks[ticker];
+  const r      = REGIMES[s.regime];
+
+  // header
+  document.getElementById('ch-ticker').textContent   = ticker;
+  document.getElementById('ch-fullname').textContent = s.name;
+  document.getElementById('ch-price').textContent    = '$' + fmt2(s.price);
+
+  const hist = s.history;
+  const prev = hist.length > 1 ? hist[hist.length-2].c : hist[0]?.o || s.price;
+  const chg  = s.price - prev;
+  const pct  = chg / prev * 100;
+  const bull = chg >= 0;
+  const chgEl = document.getElementById('ch-chg');
+  chgEl.textContent = `${bull?'▲':'▼'} ${bull?'+':''}$${fmt2(Math.abs(chg))} (${bull?'+':''}${pct.toFixed(2)}%)`;
+  chgEl.style.color = bull ? 'var(--bull)' : 'var(--bear)';
+
+  const badge = document.getElementById('ch-regime-badge');
+  badge.textContent = r.label + ' — ' + r.desc;
+  badge.style.background = r.color + '18';
+  badge.style.color = r.color;
+  badge.style.border = '1px solid ' + r.color + '55';
+
+  // canvas
+  const body   = document.getElementById('chart-body');
+  const canvas = document.getElementById('mainChart');
+  const dpr    = window.devicePixelRatio || 1;
+  const W = body.clientWidth, H = body.clientHeight;
+  canvas.width  = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD = { top:16, right:60, bottom:28, left:8 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+
+  const n = hist.length;
+  const barW   = Math.max(2, Math.min(14, Math.floor(cW / n) - 1));
+  const spacing = cW / n;
+
+  const highs = hist.map(c => c.h);
+  const lows  = hist.map(c => c.l);
+  let pMax = Math.max(...highs);
+  let pMin = Math.min(...lows);
+  const pad = (pMax - pMin) * 0.07;
+  pMax += pad; pMin -= pad;
+  const pY = p => PAD.top + cH * (1 - (p - pMin) / (pMax - pMin));
+  const cX = i => PAD.left + (i + 0.5) * spacing;
+
+  // BG
+  ctx.fillStyle = '#0d0f16'; ctx.fillRect(0, 0, W, H);
+
+  // grid
+  ctx.strokeStyle = '#1e2233'; ctx.lineWidth = .5;
+  for (let i = 0; i <= 5; i++) {
+    const p = pMin + (pMax - pMin) * (i / 5);
+    const y = pY(p);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
+    ctx.fillStyle = '#5a6080'; ctx.font = '9px IBM Plex Mono, monospace'; ctx.textAlign = 'left';
+    ctx.fillText('$' + p.toFixed(2), W - PAD.right + 4, y + 3.5);
+  }
+
+  // avg cost line for selected stock
+  const holding = state.holdings[ticker];
+  if (holding && holding.qty > 0) {
+    const ay = pY(holding.avgCost);
+    ctx.strokeStyle = '#ffe04099'; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, ay); ctx.lineTo(W - PAD.right, ay); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffe040'; ctx.font = '8px IBM Plex Mono, monospace'; ctx.textAlign = 'left';
+    ctx.fillText('avg $' + fmt2(holding.avgCost), W - PAD.right + 4, ay + 3.5);
+  }
+
+  // candles
+  hist.forEach((c, i) => {
+    const x    = cX(i);
+    const bull = c.c >= c.o;
+    const col  = bull ? '#00e07a' : '#ff3d57';
+    const colDim = bull ? '#1a4a35' : '#4a1a20';
+
+    ctx.strokeStyle = col; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, pY(c.h)); ctx.lineTo(x, pY(c.l)); ctx.stroke();
+
+    const bTop = pY(Math.max(c.o, c.c));
+    const bBot = pY(Math.min(c.o, c.c));
+    const bH   = Math.max(1, bBot - bTop);
+    ctx.fillStyle = i === n-1 ? col : colDim;
+    ctx.fillRect(x - barW/2, bTop, barW, bH);
+    ctx.strokeStyle = col; ctx.lineWidth = i===n-1 ? 1.5 : .6;
+    ctx.strokeRect(x - barW/2, bTop, barW, bH);
+  });
+
+  // date labels
+  ctx.fillStyle = '#5a6080'; ctx.font = '9px IBM Plex Mono, monospace'; ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(n / 8));
+  for (let i = 0; i < n; i += step) {
+    ctx.fillText('T-' + (n - i), cX(i), H - PAD.bottom + 14);
+  }
+}
+
+// ── VOLUME CHART ──────────────────────────────────────────────
+function renderVolume() {
+  const ticker = state.selectedTicker;
+  const hist   = state.stocks[ticker].history;
+  const area   = document.getElementById('vol-area');
+  const canvas = document.getElementById('volChart');
+  const dpr    = window.devicePixelRatio || 1;
+  const W = area.clientWidth, H = area.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#0d0f16'; ctx.fillRect(0, 0, W, H);
+
+  const n   = hist.length;
+  const sp  = W / n;
+  const bW  = Math.max(1, sp - 1);
+  const mxV = Math.max(...hist.map(c => c.v));
+
+  hist.forEach((c, i) => {
+    const x  = (i + 0.5) * sp;
+    const bh = (c.v / mxV) * (H - 4);
+    ctx.fillStyle = c.c >= c.o ? 'rgba(0,224,122,.25)' : 'rgba(255,61,87,.25)';
+    ctx.fillRect(x - bW/2, H - bh, bW, bh);
+  });
+}
+
+// ── PORTFOLIO PANEL ───────────────────────────────────────────
+function renderPortfolioPanel() {
+  const portVal = portfolioValue();
+  let invested = 0;
+  Object.entries(state.holdings).forEach(([tk, h]) => {
+    invested += h.qty * state.stocks[tk].price;
+  });
+  const pnl = portVal - STARTING_CASH;
+  const ret = (pnl / STARTING_CASH) * 100;
+  const bull = pnl >= 0;
+
+  document.getElementById('cash-val').textContent = '$' + fmt2(state.cash);
+  document.getElementById('inv-val').textContent  = '$' + fmt2(invested);
+  const pnlEl = document.getElementById('pnl-val');
+  pnlEl.textContent = `${bull?'+':'-'}$${fmt2(Math.abs(pnl))}`;
+  pnlEl.style.color = bull ? 'var(--bull)' : 'var(--bear)';
+  const retEl = document.getElementById('ret-val');
+  retEl.textContent = `${bull?'+':''}${ret.toFixed(2)}%`;
+  retEl.style.color = bull ? 'var(--bull)' : 'var(--bear)';
+}
+
+function renderHoldings() {
+  const list = document.getElementById('holdings-list');
+  const entries = Object.entries(state.holdings).filter(([,h]) => h.qty > 0);
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="no-holdings">No positions yet</div>';
+    return;
+  }
+  list.innerHTML = '';
+  entries.forEach(([ticker, h]) => {
+    const price = state.stocks[ticker].price;
+    const value = h.qty * price;
+    const cost  = h.qty * h.avgCost;
+    const pnl   = value - cost;
+    const pct   = pnl / cost * 100;
+    const bull  = pnl >= 0;
+    const el = document.createElement('div');
+    el.className = 'holding-row';
+    el.innerHTML = `
+      <div>
+        <div class="hr-top"><span class="hr-ticker">${ticker}</span><span class="hr-qty">${h.qty} shares</span></div>
+        <div style="font-size:.62rem;color:var(--muted);font-family:var(--font-mono)">avg $${fmt2(h.avgCost)}</div>
+      </div>
+      <div>
+        <div class="hr-value">$${fmt2(value)}</div>
+        <div class="hr-pnl ${bull?'up':'dn'}">${bull?'+':'-'}$${fmt2(Math.abs(pnl))} (${bull?'+':''}${pct.toFixed(1)}%)</div>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function renderTradeLog() {
+  const list = document.getElementById('trade-log');
+  list.innerHTML = '';
+  state.tradeLog.slice(0, 20).forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'tl-item';
+    el.innerHTML = `
+      <span class="tl-badge ${t.side}">${t.side.toUpperCase()}</span>
+      <span class="tl-text"><strong>${t.qty}×${t.ticker}</strong> @ $${fmt2(t.price)}</span>
+      <span class="tl-time">T${t.tick}</span>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function renderEquityChart() {
+  const canvas = document.getElementById('equityChart');
+  const wrap   = document.getElementById('equityChart').parentElement;
+  const dpr    = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth, H = 52;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const vals = state.equityHistory;
+  if (vals.length < 2) return;
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const range = mx - mn || 1;
+  const bull = vals[vals.length-1] >= vals[0];
+
+  ctx.strokeStyle = bull ? 'var(--bull)' : 'var(--bear)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  vals.forEach((v, i) => {
+    const x = (i / (vals.length-1)) * (W-2) + 1;
+    const y = H - 2 - ((v - mn) / range) * (H - 4);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  ctx.lineTo(W-1, H); ctx.lineTo(1, H); ctx.closePath();
+  ctx.fillStyle = bull ? 'rgba(0,224,122,.07)' : 'rgba(255,61,87,.07)';
+  ctx.fill();
+
+  // baseline
+  const by = H - 2 - ((STARTING_CASH - mn) / range) * (H - 4);
+  ctx.strokeStyle = '#1e2233'; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(1, by); ctx.lineTo(W-1, by); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REGIME LEGEND
+// ═══════════════════════════════════════════════════════════════
+function buildRegimeLegend() {
+  const grid = document.getElementById('rl-grid');
+  Object.entries(REGIMES).forEach(([key, r]) => {
+    const el = document.createElement('div');
+    el.className = 'rl-item';
+    el.innerHTML = `<div class="rl-dot" style="background:${r.color}"></div>${r.label}`;
+    grid.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MISC
+// ═══════════════════════════════════════════════════════════════
+function selectStock(ticker) {
+  state.selectedTicker = ticker;
+  updateUI();
+}
+
+function updateCostPreview() {
+  const ticker = state.selectedTicker;
+  if (!ticker) return;
+  const qty   = parseInt(document.getElementById('qty-input').value) || 0;
+  const price = state.stocks[ticker]?.price || 0;
+  const total = qty * price;
+  document.getElementById('cost-preview').innerHTML = `Cost: <strong>$${fmt2(total)}</strong>`;
+
+  // disable buy if not enough cash
+  document.getElementById('btn-buy').disabled = total > state.cash || qty <= 0;
+  // disable sell if no shares
+  const h = state.holdings[ticker];
+  document.getElementById('btn-sell').disabled = !h || h.qty < qty || qty <= 0;
+}
+
+function fmt2(n) { return Number(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
+// ── HOVER on main chart ────────────────────────────────────────
+document.getElementById('chart-body').addEventListener('mousemove', e => {
+  const body   = document.getElementById('chart-body');
+  const rect   = body.getBoundingClientRect();
+  const mx     = e.clientX - rect.left;
+  const W      = body.clientWidth;
+  const ticker = state.selectedTicker;
+  const hist   = state.stocks[ticker].history;
+  const PAD_L  = 8, PAD_R = 60;
+  const cW     = W - PAD_L - PAD_R;
+  const sp     = cW / hist.length;
+  const idx    = Math.floor((mx - PAD_L) / sp);
+  const info   = document.getElementById('chart-hover-info');
+
+  if (idx >= 0 && idx < hist.length) {
+    const c = hist[idx];
+    const bull = c.c >= c.o;
+    const chgPct = ((c.c - c.o) / c.o * 100).toFixed(2);
+    info.style.display = 'block';
+    info.innerHTML = `
+      <span style="color:var(--muted)">T-${hist.length - idx}</span><br>
+      <span style="color:var(--muted)">O</span> <strong>$${fmt2(c.o)}</strong> &nbsp;
+      <span style="color:var(--muted)">H</span> <strong style="color:var(--bull)">$${fmt2(c.h)}</strong><br>
+      <span style="color:var(--muted)">L</span> <strong style="color:var(--bear)">$${fmt2(c.l)}</strong> &nbsp;
+      <span style="color:var(--muted)">C</span> <strong>$${fmt2(c.c)}</strong><br>
+      <span style="${bull?'color:var(--bull)':'color:var(--bear)'}">${bull?'▲':'▼'} ${chgPct}%</span>
+    `;
+  } else {
+    info.style.display = 'none';
+  }
+});
+document.getElementById('chart-body').addEventListener('mouseleave', () => {
+  document.getElementById('chart-hover-info').style.display = 'none';
+});
+
+// ── RESIZE ────────────────────────────────────────────────────
+window.addEventListener('resize', () => { renderMainChart(); renderVolume(); });
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+initStocks();
+buildRegimeLegend();
+updateUI();
+renderVolume();
+startTimer();
+
+// also render volume on each tick
+const _origTick = tick;
+</script>
+</body>
+</html>
