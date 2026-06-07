@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="TradeFloor — A stock market simulator to learn candlestick trading">
+  <meta name="theme-color" content="#07080c">
+
+  <!-- PWA / App icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TradeFloor">
+  <link rel="manifest" href="manifest.json">
+
+  <title>TradeFloor — Stock Market Simulator</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ── TOP BAR ── -->
+  <header class="topbar">
+    <div class="logo">Trade<span>Floor</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-clock">
+      DAY <strong id="tb-day">1</strong>
+      <span class="tb-tick-label">&nbsp;|&nbsp; TICK <strong id="tb-tick">0</strong></span>
+    </div>
+    <div class="tb-sep hide-mobile"></div>
+    <div class="tb-speed hide-mobile">
+      <span class="speed-label">Speed</span>
+      <button class="speed-btn" data-ms="2000">Slow</button>
+      <button class="speed-btn active" data-ms="800">Normal</button>
+      <button class="speed-btn" data-ms="250">Fast</button>
+      <button class="speed-btn" data-ms="60">Turbo</button>
+      <button class="speed-btn pause-btn" id="pause-btn">⏸ Pause</button>
+    </div>
+    <div class="paused-badge" id="paused-badge">⏸ PAUSED</div>
+    <div class="tb-portfolio">
+      <div class="lbl">Portfolio</div>
+      <div class="val" id="tb-portval">$10,000.00</div>
+      <div class="chg" id="tb-portchg">+$0.00 (0.00%)</div>
+    </div>
+  </header>
+
+  <!-- ── MOBILE SPEED BAR ── -->
+  <div class="mobile-speed-bar show-mobile">
+    <button class="speed-btn" data-ms="2000">Slow</button>
+    <button class="speed-btn active" data-ms="800">Normal</button>
+    <button class="speed-btn" data-ms="250">Fast</button>
+    <button class="speed-btn" data-ms="60">Turbo</button>
+    <button class="speed-btn pause-btn" id="pause-btn-mobile">⏸</button>
+  </div>
+
+  <!-- ── MAIN LAYOUT ── -->
+  <main class="app" id="app">
+
+    <!-- STOCK LIST -->
+    <aside class="stock-list" id="stock-list">
+      <div class="panel-head">
+        Markets &mdash; <span id="live-count">0</span> stocks
+      </div>
+      <div class="stock-items" id="stock-items"></div>
+    </aside>
+
+    <!-- CHART ZONE -->
+    <section class="chart-zone">
+      <div class="chart-header">
+        <div class="ch-name">
+          <div class="ch-ticker" id="ch-ticker">—</div>
+          <div class="ch-fullname" id="ch-fullname">Select a stock</div>
+          <div class="ch-regime-badge" id="ch-regime-badge"></div>
+        </div>
+        <div class="ch-price-block">
+          <div class="ch-price" id="ch-price">—</div>
+          <div class="ch-chg"   id="ch-chg">—</div>
+        </div>
+      </div>
+
+      <div class="chart-body" id="chart-body">
+        <canvas id="mainChart"></canvas>
+        <div class="chart-hover-info" id="chart-hover-info"></div>
+      </div>
+
+      <div class="vol-area" id="vol-area">
+        <canvas id="volChart"></canvas>
+      </div>
+
+      <div class="buy-sell-bar">
+        <span class="bs-label">Shares</span>
+        <input class="qty-input" type="number" id="qty-input"
+               value="10" min="1" max="9999">
+        <div class="cost-preview" id="cost-preview">Cost: <strong>—</strong></div>
+        <div class="bsbar-spacer"></div>
+        <button class="action-btn buy"  id="btn-buy">Buy</button>
+        <button class="action-btn sell" id="btn-sell">Sell</button>
+        <div class="trade-msg" id="trade-msg"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+      <div class="panel-head">Portfolio</div>
+      <div class="port-summary">
+        <div class="port-row">
+          <div class="port-kv">
+            <div class="k">Cash</div>
+            <div class="v" id="cash-val">$10,000.00</div>
+          </div>
+          <div class="port-kv right">
+            <div class="k">Invested</div>
+            <div class="v" id="inv-val">$0.00</div>
+          </div>
+        </div>
+        <div class="port-row">
+          <div class="port-kv">
+            <div class="k">Total P&amp;L</div>
+            <div class="v" id="pnl-val">$0.00</div>
+          </div>
+          <div class="port-kv right">
+            <div class="k">Return</div>
+            <div class="v" id="ret-val">0.00%</div>
+          </div>
+        </div>
+        <div class="equity-chart-wrap">
+          <canvas id="equityChart"></canvas>
+        </div>
+      </div>
+
+      <div class="panel-head">Holdings</div>
+      <div class="holdings-list" id="holdings-list">
+        <div class="no-holdings">No positions yet</div>
+      </div>
+
+      <div class="panel-head">Trade Log</div>
+      <div class="trade-log" id="trade-log"></div>
+
+      <div class="regime-legend">
+        <div class="lbl">Stock Behaviours</div>
+        <div class="rl-grid" id="rl-grid"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- SCRIPTS (order matters) -->
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

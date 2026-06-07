@@ -1,0 +1,25 @@
+{
+  "name": "TradeFloor — Stock Market Simulator",
+  "short_name": "TradeFloor",
+  "description": "A stock market simulator to learn candlestick trading with 8 stocks and different market behaviours.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07080c",
+  "theme_color": "#07080c",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
